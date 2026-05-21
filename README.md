@@ -476,7 +476,7 @@ Exemplos:
 ### 1. Clonar o repositório
 
 ```bash
-git clone URL_DO_REPOSITORIO
+git clone https://github.com/thomasmfontes/PawCare.NET.git
 ```
 
 ### 2. Acessar a pasta do projeto
@@ -498,7 +498,7 @@ No arquivo `appsettings.json`, configurar a conexão Oracle:
 ```json
 {
   "ConnectionStrings": {
-    "OracleConnection": "User Id=SEU_USUARIO;Password=SUA_SENHA;Data Source=oracle.fiap.com.br:1521/ORCL"
+    "OracleConnection": "User Id=SECRETO;Password=SECRETO;Data Source=oracle.fiap.com.br:1521/ORCL"
   }
 }
 ```
