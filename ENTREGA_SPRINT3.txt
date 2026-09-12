@@ -1,0 +1,79 @@
+================================================================================
+FIAP - ADVANCED BUSINESS DEVELOPMENT WITH .NET
+ENTREGA - 3ª SPRINT
+================================================================================
+
+PROJETO: PawCare API - Gestão Veterinária & Cuidados Pet
+LINK DO REPOSITÓRIO GITHUB:
+https://github.com/thomasmfontes/PawCare.NET
+
+--------------------------------------------------------------------------------
+INTEGRANTES DO GRUPO:
+--------------------------------------------------------------------------------
+- Thomas Fontes    - RM: 562254
+- Matheus Molina   - RM: 563399
+- Gabriel Maciel   - RM: 562795
+- Vitória Rodrigues - RM: 565160
+- Augusto Bonomo   - RM: 565155
+
+--------------------------------------------------------------------------------
+RESUMO DAS IMPLEMENTAÇÕES REALIZADAS:
+--------------------------------------------------------------------------------
+
+1. CORREÇÃO DO FEEDBACK DA SPRINT ANTERIOR (SWAGGER DETALHADO):
+   - Habilitação e inclusão automática de comentários XML (PawCareApi.xml) no Swagger.
+   - Todos os 8 controllers totalmente documentados (<summary>, <param>, <returns>, <remarks>).
+   - Mapeamento explícito de respostas HTTP via [ProducesResponseType] em todos os endpoints 
+     (200 OK, 201 Created, 204 NoContent, 400 BadRequest e 404 NotFound).
+
+2. MONITORAMENTO E OBSERVABILIDADE (40 PONTOS):
+   - Health Checks (Microsoft.Extensions.Diagnostics.HealthChecks):
+     * Endpoints: /health (diagnóstico detalhado em JSON com latência individual),
+       /health/ready (Readiness Probe) e /health/live (Liveness Probe).
+     * Verificação de conectividade com o banco de dados Oracle (PawCareContext).
+     * Verificação de disponibilidade de serviços externos (ExternalServicesHealthCheck).
+   - Logging Estruturado (Serilog):
+     * Níveis de severidade configurados: Information, Warning e Error.
+     * Middleware de rastreamento com injeção do cabeçalho X-Correlation-ID no LogContext.
+     * Saída simultânea para Console formatado e Arquivo rotativo diário (logs/pawcare-.log).
+   - Distributed Tracing e Métricas (OpenTelemetry):
+     * Rastreamento distribuído de requisições ASP.NET Core e HttpClient.
+     * Exposição de métricas de desempenho personalizadas em PawCareMetrics (tempo de resposta,
+       taxa/contagem de erros e contador total de requisições).
+
+3. TESTES AUTOMATIZADOS - PADRÃO AAA (50 PONTOS):
+   - Suíte de 29 testes automatizados com 100% de aprovação (0 falhas).
+   - Separação dos projetos em camadas distintas:
+     * tests/PawCareApi.Tests.Unit: Testes unitários com xUnit, Moq e FluentAssertions para
+       as camadas de Domínio (Pet, Tutor) e Aplicação/Controllers (Pets, Tutores, Clinicas),
+       utilizando TestDbContextFixture e UnitTestCollection.
+     * tests/PawCareApi.Tests.Integration: Testes de integração de ponta a ponta para os
+       endpoints HTTP utilizando WebApplicationFactory<Program>, banco em memória e
+       IntegrationTestCollection.
+   - Padrão AAA explícito (// Arrange, // Act, // Assert) em todos os métodos de teste.
+   - Nomenclatura consistente e padronizada: MetodoTestado_Cenario_ResultadoEsperado.
+
+4. ATUALIZAÇÃO DO README (10 PONTOS):
+   - Documentação completa dos endpoints de Health Check e como monitorar a aplicação.
+   - Guia de execução dos testes automatizados via linha de comando (dotnet test).
+   - Atualização da arquitetura do projeto e descrição de observabilidade.
+
+--------------------------------------------------------------------------------
+COMO EXECUTAR E VALIDAR A APLICAÇÃO:
+--------------------------------------------------------------------------------
+
+1. Executar todos os testes automatizados (Unit + Integration):
+   dotnet test --logger "console;verbosity=detailed"
+
+2. Executar a API localmente:
+   dotnet run --project PawCareApi.csproj
+
+3. Acessar a documentação interativa do Swagger:
+   http://localhost:5115/swagger
+
+4. Consultar os endpoints de Health Check:
+   - Diagnóstico completo: http://localhost:5115/health
+   - Sonda de prontidão:   http://localhost:5115/health/ready
+   - Sonda de vitalidade:  http://localhost:5115/health/live
+
+================================================================================
