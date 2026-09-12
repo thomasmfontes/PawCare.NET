@@ -3,77 +3,111 @@ FIAP - ADVANCED BUSINESS DEVELOPMENT WITH .NET
 ENTREGA - 3ª SPRINT
 ================================================================================
 
-PROJETO: PawCare API - Gestão Veterinária & Cuidados Pet
-LINK DO REPOSITÓRIO GITHUB:
+PROJETO: PawCare API
+
+LINK DO REPOSITÓRIO NO GITHUB:
 https://github.com/thomasmfontes/PawCare.NET
+
+LINK DO VÍDEO NO YOUTUBE (Demonstração da Entrega):
+[COLOQUE AQUI O LINK DO VÍDEO DO YOUTUBE CASO O PROFESSOR SOLICITE]
 
 --------------------------------------------------------------------------------
 INTEGRANTES DO GRUPO:
 --------------------------------------------------------------------------------
-- Thomas Fontes    - RM: 562254
-- Matheus Molina   - RM: 563399
-- Gabriel Maciel   - RM: 562795
+- Thomas Fontes     - RM: 562254
+- Matheus Molina    - RM: 563399
+- Gabriel Maciel    - RM: 562795
 - Vitória Rodrigues - RM: 565160
-- Augusto Bonomo   - RM: 565155
+- Augusto Bonomo    - RM: 565155
 
 --------------------------------------------------------------------------------
-RESUMO DAS IMPLEMENTAÇÕES REALIZADAS:
+ATENDIMENTO RIGOROSO AOS REQUISITOS DO EDITAL (3ª SPRINT):
 --------------------------------------------------------------------------------
 
-1. CORREÇÃO DO FEEDBACK DA SPRINT ANTERIOR (SWAGGER DETALHADO):
-   - Habilitação e inclusão automática de comentários XML (PawCareApi.xml) no Swagger.
-   - Todos os 8 controllers totalmente documentados (<summary>, <param>, <returns>, <remarks>).
-   - Mapeamento explícito de respostas HTTP via [ProducesResponseType] em todos os endpoints 
-     (200 OK, 201 Created, 204 NoContent, 400 BadRequest e 404 NotFound).
+1. IMPLEMENTAÇÃO DE MONITORAMENTO E OBSERVABILIDADE (40 pts)
 
-2. MONITORAMENTO E OBSERVABILIDADE (40 PONTOS):
-   - Health Checks (Microsoft.Extensions.Diagnostics.HealthChecks):
-     * Endpoints: /health (diagnóstico detalhado em JSON com latência individual),
-       /health/ready (Readiness Probe) e /health/live (Liveness Probe).
-     * Verificação de conectividade com o banco de dados Oracle (PawCareContext).
-     * Verificação de disponibilidade de serviços externos (ExternalServicesHealthCheck).
-   - Logging Estruturado (Serilog):
-     * Níveis de severidade configurados: Information, Warning e Error.
-     * Middleware de rastreamento com injeção do cabeçalho X-Correlation-ID no LogContext.
-     * Saída simultânea para Console formatado e Arquivo rotativo diário (logs/pawcare-.log).
-   - Distributed Tracing e Métricas (OpenTelemetry):
-     * Rastreamento distribuído de requisições ASP.NET Core e HttpClient.
-     * Exposição de métricas de desempenho personalizadas em PawCareMetrics (tempo de resposta,
-       taxa/contagem de erros e contador total de requisições).
+   • Health Checks (15 pts):
+     - Implementados endpoints de Health Check utilizando Microsoft.Extensions.Diagnostics.HealthChecks.
+     - Endpoints disponíveis:
+       * /health       -> Diagnóstico completo em JSON com tempo de resposta de cada serviço.
+       * /health/ready -> Sonda de prontidão (Readiness Probe).
+       * /health/live  -> Sonda de vitalidade (Liveness Probe).
+     - Verificação da conectividade com o banco de dados Oracle através do PawCareContext (AddDbContextCheck<PawCareContext>).
+     - Verificação de disponibilidade de serviços externos através da classe customizada ExternalServicesHealthCheck.
 
-3. TESTES AUTOMATIZADOS - PADRÃO AAA (50 PONTOS):
-   - Suíte de 29 testes automatizados com 100% de aprovação (0 falhas).
-   - Separação dos projetos em camadas distintas:
-     * tests/PawCareApi.Tests.Unit: Testes unitários com xUnit, Moq e FluentAssertions para
-       as camadas de Domínio (Pet, Tutor) e Aplicação/Controllers (Pets, Tutores, Clinicas),
-       utilizando TestDbContextFixture e UnitTestCollection.
-     * tests/PawCareApi.Tests.Integration: Testes de integração de ponta a ponta para os
-       endpoints HTTP utilizando WebApplicationFactory<Program>, banco em memória e
-       IntegrationTestCollection.
-   - Padrão AAA explícito (// Arrange, // Act, // Assert) em todos os métodos de teste.
-   - Nomenclatura consistente e padronizada: MetodoTestado_Cenario_ResultadoEsperado.
+   • Logging Estruturado (10 pts):
+     - Configurado logging estruturado com Serilog (Serilog.AspNetCore, Serilog.Sinks.Console e Serilog.Sinks.File).
+     - Níveis de log configurados e aplicados: Information, Warning e Error.
+     - Correlação de requisições implementada via middleware customizado (CorrelationIdMiddleware), que captura ou gera o cabeçalho "X-Correlation-ID" e o injeta no LogContext do Serilog e no cabeçalho de resposta HTTP.
+     - Saída dupla configurada: no Console (colorido e formatado) e em Arquivo com rotação diária (pasta logs/pawcare-.log).
 
-4. ATUALIZAÇÃO DO README (10 PONTOS):
-   - Documentação completa dos endpoints de Health Check e como monitorar a aplicação.
-   - Guia de execução dos testes automatizados via linha de comando (dotnet test).
-   - Atualização da arquitetura do projeto e descrição de observabilidade.
+   • Tracing e Métricas (15 pts):
+     - Implementado distributed tracing com OpenTelemetry (OpenTelemetry.Extensions.Hosting, OpenTelemetry.Instrumentation.AspNetCore e OpenTelemetry.Instrumentation.Http) para rastrear requisições entre camadas da aplicação.
+     - Métricas de desempenho expostas via OpenTelemetry e classe customizada PawCareMetrics:
+       * pawcare_operation_duration_seconds: Histograma de tempo de resposta das operações.
+       * pawcare_errors_total: Contador de taxa e ocorrência de erros.
+       * pawcare_requests_total: Contador de volume total de requisições.
 
 --------------------------------------------------------------------------------
-COMO EXECUTAR E VALIDAR A APLICAÇÃO:
+
+2. IMPLEMENTAÇÃO DE TESTES AUTOMATIZADOS – PADRÃO AAA (50 pts)
+
+   • Testes Unitários com xUnit (20 pts):
+     - Implementados testes unitários seguindo o padrão AAA (Arrange, Act, Assert) devidamente comentado em cada método.
+     - Cobertura das camadas de Domínio (PetDomainTests, TutorDomainTests) e Aplicação/Controllers (PetsControllerTests, TutoresControllerTests, ClinicasControllerTests).
+     - Utilizado o framework xUnit com Moq para mocking e FluentAssertions para validações expressivas.
+
+   • Testes de Integração (15 pts):
+     - Implementados testes de integração para os endpoints da API utilizando WebApplicationFactory<Program> (CustomWebApplicationFactory).
+     - Validação do fluxo completo de requisições HTTP para os endpoints /api/pets, /api/tutores e /health.
+     - Testados cenários de sucesso (200 OK, 201 Created com cabeçalho Location, 204 NoContent) e tratamento de erros (400 BadRequest para regras de negócio e validações, 404 NotFound para recursos inexistentes).
+
+   • Cobertura e Organização dos Testes (15 pts):
+     - Projetos de teste organizados e separados por camada:
+       * tests/PawCareApi.Tests.Unit        -> Testes Unitários de Domínio e Controladores.
+       * tests/PawCareApi.Tests.Integration -> Testes de Integração com WebApplicationFactory.
+     - Nomenclatura rigorosa e consistente em 100% dos testes:
+       MetodoTestado_Cenario_ResultadoEsperado
+     - Utilização de Fixtures e Collection Fixtures:
+       * TestDbContextFixture e UnitTestCollection (para testes unitários com banco isolado).
+       * CustomWebApplicationFactory e IntegrationTestCollection (para testes de integração com contexto compartilhado).
+     - Resultado: 29 testes automatizados implementados e 100% aprovados (0 falhas).
+
 --------------------------------------------------------------------------------
 
-1. Executar todos os testes automatizados (Unit + Integration):
-   dotnet test --logger "console;verbosity=detailed"
+3. ATUALIZAÇÃO DO README (10 pts)
 
-2. Executar a API localmente:
-   dotnet run --project PawCareApi.csproj
+   • Documentação detalhada dos endpoints de Health Check (/health, /health/ready, /health/live) com tabela de finalidade e exemplo real da resposta JSON.
+   • Inclusão de instruções completas de como monitorar a aplicação (Serilog e OpenTelemetry).
+   • Inclusão de instruções de como executar os testes via CLI (dotnet test, dotnet test --logger "console;verbosity=detailed").
+   • Atualização da descrição geral do projeto, árvore arquitetural de pastas e novas funcionalidades no README.md.
 
-3. Acessar a documentação interativa do Swagger:
-   http://localhost:5115/swagger
+--------------------------------------------------------------------------------
 
-4. Consultar os endpoints de Health Check:
-   - Diagnóstico completo: http://localhost:5115/health
-   - Sonda de prontidão:   http://localhost:5115/health/ready
-   - Sonda de vitalidade:  http://localhost:5115/health/live
+4. CORREÇÃO DO FEEDBACK DA ENTREGA ANTERIOR (SWAGGER DETALHADO):
+   • Habilitação da geração de arquivo XML compilado (PawCareApi.xml) e leitura pelo SwaggerGen.
+   • Todos os 8 controladores documentados com tags XML completas (<summary>, <param>, <returns>, <remarks>).
+   • Mapeamento de todos os status HTTP possíveis em cada endpoint através de anotações [ProducesResponseType] (200, 201, 204, 400, 404).
+
+--------------------------------------------------------------------------------
+INSTRUÇÕES DE EXECUÇÃO:
+--------------------------------------------------------------------------------
+
+- Executar todos os testes:
+  dotnet test
+
+- Executar os testes com log detalhado:
+  dotnet test --logger "console;verbosity=detailed"
+
+- Executar a aplicação:
+  dotnet run --project PawCareApi.csproj
+
+- Acessar o Swagger:
+  http://localhost:5115/swagger
+
+- Acessar os Health Checks:
+  http://localhost:5115/health
+  http://localhost:5115/health/ready
+  http://localhost:5115/health/live
 
 ================================================================================
