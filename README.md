@@ -42,12 +42,17 @@ A solução permite:
 
 ## Tecnologias Utilizadas
 
-- C#
+- C# (.NET 10)
 - ASP.NET Core Web API
 - Entity Framework Core
-- Oracle Database
-- Oracle.EntityFrameworkCore
-- Swagger / OpenAPI
+- Oracle Database & Oracle.EntityFrameworkCore
+- In-Memory Database (para testes automatizados isolados)
+- Swagger / OpenAPI com documentação rica e XML comments
+- Serilog (Logging estruturado em Console e Arquivo com Correlation ID)
+- OpenTelemetry (Distributed Tracing e Métricas de desempenho)
+- Microsoft.Extensions.Diagnostics.HealthChecks (Endpoints de integridade)
+- xUnit, Moq e FluentAssertions (Testes Unitários com padrão AAA)
+- WebApplicationFactory & Fixtures (Testes de Integração de endpoints)
 - Migrations
 - Visual Studio / VS Code
 - .NET CLI
@@ -56,12 +61,12 @@ A solução permite:
 
 ## Arquitetura do Projeto
 
-O projeto foi organizado em camadas simples, separando responsabilidades entre Models, Data, Mappings e Controllers.
+O projeto adota uma arquitetura modular em camadas, com separação clara de responsabilidades, incluindo observabilidade, diagnósticos e projetos de testes automatizados dedicados:
 
 ```txt
 PawCareApi/
 │
-├── Controllers/
+├── Controllers/                         # Controladores REST com anotações e XML Docs Swagger
 │   ├── TutoresController.cs
 │   ├── RacasController.cs
 │   ├── PetsController.cs
@@ -71,10 +76,20 @@ PawCareApi/
 │   ├── EventosController.cs
 │   └── HistoricosClinicosController.cs
 │
-├── Data/
-│   └── PawCareContext.cs
+├── Middlewares/                         # Middlewares da aplicação
+│   └── CorrelationIdMiddleware.cs       # Rastreamento de requisições com X-Correlation-ID
 │
-├── Models/
+├── HealthChecks/                        # Verificação de saúde da aplicação
+│   ├── ExternalServicesHealthCheck.cs   # Health check de serviços externos/internet
+│   └── HealthCheckResponseWriter.cs     # Serializador JSON formatado para diagnósticos
+│
+├── Diagnostics/                         # Instrumentação de telemetria
+│   └── PawCareMetrics.cs                # Contadores e histogramas OpenTelemetry
+│
+├── Data/
+│   └── PawCareContext.cs                # DbContext da aplicação
+│
+├── Models/                              # Modelos de domínio
 │   ├── Tutor.cs
 │   ├── Raca.cs
 │   ├── Pet.cs
@@ -84,7 +99,7 @@ PawCareApi/
 │   ├── Evento.cs
 │   └── HistoricoClinico.cs
 │
-├── Mappings/
+├── Mappings/                            # Fluent API mappings para Oracle
 │   ├── TutorMapping.cs
 │   ├── RacaMapping.cs
 │   ├── PetMapping.cs
@@ -94,12 +109,22 @@ PawCareApi/
 │   ├── EventoMapping.cs
 │   └── HistoricoClinicoMapping.cs
 │
-├── Migrations/
-├── Program.cs
+├── Migrations/                          # Migrações do banco de dados
+├── tests/                               # Projetos de Testes Automatizados (Padrão AAA)
+│   ├── PawCareApi.Tests.Unit/           # Testes Unitários (xUnit + Moq)
+│   │   ├── Domain/                      # Testes de regras de negócio das entidades
+│   │   ├── Controllers/                 # Testes unitários dos controladores
+│   │   └── Fixtures/                    # TestDbContextFixture & UnitTestCollection
+│   │
+│   └── PawCareApi.Tests.Integration/    # Testes de Integração (WebApplicationFactory)
+│       ├── Endpoints/                   # Testes de fluxo HTTP completo (Pets, Tutores, Health)
+│       └── Fixtures/                    # CustomWebApplicationFactory & IntegrationTestCollection
+│
+├── logs/                                # Arquivos de log estruturados (gerados em runtime)
+├── Program.cs                           # Inicialização, Serilog, OpenTelemetry e HealthChecks
 ├── appsettings.json
 └── README.md
 ```
-
 ---
 
 ## Entidades Implementadas
@@ -527,6 +552,150 @@ Exemplo:
 
 ```txt
 http://localhost:5115/swagger
+```
+
+---
+
+## Documentação Detalhada da API (Swagger / OpenAPI)
+
+A API conta com documentação interativa avançada gerada pelo **Swashbuckle / OpenAPI**, enriquecida por comentários XML compilados a partir do código-fonte (`PawCareApi.xml`):
+
+- **Descrições Completas**: Todos os controladores e endpoints possuem descrições de propósito, parâmetros de rota/query e corpo da requisição.
+- **Códigos de Resposta HTTP Documentados**: Cada método implementa anotações explícitas `[ProducesResponseType]` e tags XML `<response code="...">`, cobrindo:
+  - `200 OK`: Sucesso em consultas.
+  - `201 Created`: Criação de recursos com retorno da rota no header `Location`.
+  - `204 NoContent`: Atualizações e exclusões bem-sucedidas.
+  - `400 BadRequest`: Validações de payload, campos obrigatórios, inconsistências de IDs ou chaves duplicadas.
+  - `404 NotFound`: Entidades ou parâmetros não localizados na base.
+- **Modelos e DTOs Tipados**: Esquemas de dados exibidos com tipos primitivos, restrições e relacionamentos claros na interface gráfica do Swagger.
+
+---
+
+## Monitoramento e Observabilidade
+
+A aplicação implementa uma camada abrangente de observabilidade, integrando monitoramento de integridade (Health Checks), registro de eventos estruturados (Logging) e telemetria distribuída (Tracing e Métricas).
+
+### 1. Health Checks (`Microsoft.Extensions.Diagnostics.HealthChecks`)
+
+Permite a sondagem em tempo real da saúde da aplicação e de suas dependências críticas:
+
+| Endpoint | Finalidade | Verificações Inclusas |
+| :--- | :--- | :--- |
+| `/health` | Diagnóstico geral em formato JSON | Todas as sondas registradas (DB + Serviços Externos) |
+| `/health/ready` | Sonda de Prontidão (Readiness Probe) | Conectividade com o banco Oracle e dependências externas |
+| `/health/live` | Sonda de Vitalidade (Liveness Probe) | Verifica se o processo da aplicação ASP.NET Core está ativo |
+
+#### Exemplo de Resposta JSON (`/health` e `/health/ready`):
+```json
+{
+  "status": "Healthy",
+  "totalDuration": "12.45ms",
+  "timestamp": "2026-09-12T01:50:00.000Z",
+  "entries": [
+    {
+      "component": "oracle-database",
+      "status": "Healthy",
+      "description": null,
+      "duration": "8.12ms",
+      "exception": null,
+      "data": {}
+    },
+    {
+      "component": "external-services",
+      "status": "Healthy",
+      "description": "Serviço externo de notificações/integração respondendo com sucesso.",
+      "duration": "4.33ms",
+      "exception": null,
+      "data": {}
+    }
+  ]
+}
+```
+
+### 2. Logging Estruturado com Serilog
+
+Configurado para geração de logs em formato estruturado com contextualização em múltiplos destinos:
+
+- **Correlation ID Middleware**: Cada requisição recebe um `X-Correlation-ID` único (gerado ou propagado pelo cabeçalho HTTP), permitindo rastrear todo o ciclo de vida da requisição entre diferentes camadas e microsserviços.
+- **Destinos (Sinks)**:
+  - **Console**: Saída legível e colorida para facilitar o desenvolvimento local.
+  - **Arquivo Rotativo**: Armazenamento diário em `logs/pawcare-.log` com política de retenção de 14 dias.
+- **Níveis de Severidade**:
+  - `Information`: Ciclo de vida da aplicação e requisições HTTP concluídas.
+  - `Warning`: Validações de negócio frustradas ou degradações controladas.
+  - `Error`: Exceções não tratadas e falhas críticas de infraestrutura.
+
+### 3. Distributed Tracing e Métricas com OpenTelemetry
+
+A aplicação expõe métricas de telemetria e rastreamento distribuído através do padrão **OpenTelemetry**:
+
+- **Distributed Tracing**:
+  - Instrumentação automática do pipeline ASP.NET Core e de chamadas `HttpClient`.
+  - Captura e propagação de contexto de traces entre chamadas de rede e camadas da aplicação.
+- **Métricas de Desempenho (`PawCareMetrics`)**:
+  - Contadores de requisições: `pawcare_requests_total`.
+  - Contadores de taxa de erros: `pawcare_errors_total`.
+  - Histogramas de duração de operações: `pawcare_operation_duration_seconds`.
+  - Métricas de runtime do .NET e roteamento ASP.NET Core (`http.request.duration`, `http.client.request.duration`, `dns.lookup.duration`).
+
+---
+
+## Testes Automatizados – Padrão AAA
+
+A solução possui cobertura completa de testes automatizados organizados em projetos dedicados por camada, garantindo que novas funcionalidades possam ser validadas com segurança e isolamento.
+
+### Organização dos Testes
+
+1. **`tests/PawCareApi.Tests.Unit` (Testes Unitários)**:
+   - Framework: **xUnit** com asserções fluidas via **FluentAssertions** e mocks via **Moq**.
+   - Foco: Regras de negócio de domínio (`PetDomainTests`, `TutorDomainTests`) e controladores em isolamento (`PetsControllerTests`, `TutoresControllerTests`, `ClinicasControllerTests`).
+   - Utilização de `TestDbContextFixture` com banco de dados em memória isolado por execução.
+2. **`tests/PawCareApi.Tests.Integration` (Testes de Integração)**:
+   - Framework: **xUnit** + `Microsoft.AspNetCore.Mvc.Testing` (`WebApplicationFactory<Program>`).
+   - Foco: Testar o pipeline HTTP completo dos endpoints (`PetsEndpointTests`, `TutoresEndpointTests`, `HealthCheckEndpointTests`), validando cabeçalhos, códigos de status (200, 201, 204, 400, 404) e serialização JSON.
+   - Utilização de **Class Fixtures** e **Collection Fixtures** (`IntegrationTestCollection`) para inicialização eficiente do servidor de testes e compartilhamento de contexto sem overhead de re-instanciação.
+
+### Padrão AAA (Arrange, Act, Assert) e Nomenclatura
+
+Todos os métodos de teste seguem rigorosamente a convenção:
+`MetodoTestado_Cenario_ResultadoEsperado`
+
+E a estrutura de blocos explícita:
+```csharp
+[Fact]
+public async Task Create_QuandoDadosValidos_DeveRetornarCreatedEIncrementarQtdPetsDoTutor()
+{
+    // Arrange (Preparação do cenário e dos dados)
+    using var context = _fixture.CreateContext();
+    var tutor = new Tutor { Cpf = "33333333333", Nome = "Roberto", ... };
+    ...
+
+    // Act (Execução da ação a ser testada)
+    var result = await controller.Create(novoPet);
+
+    // Assert (Validação dos resultados esperados)
+    var createdResult = result.Result as CreatedAtActionResult;
+    createdResult.Should().NotBeNull();
+    createdResult!.StatusCode.Should().Be(201);
+}
+```
+
+### Como Executar os Testes
+
+Execute na raiz da solução:
+
+```bash
+# Executar toda a suíte de testes (Unit + Integration)
+dotnet test
+
+# Executar com saída detalhada no console
+dotnet test --logger "console;verbosity=detailed"
+
+# Executar apenas os testes unitários
+dotnet test tests/PawCareApi.Tests.Unit
+
+# Executar apenas os testes de integração
+dotnet test tests/PawCareApi.Tests.Integration
 ```
 
 ---
