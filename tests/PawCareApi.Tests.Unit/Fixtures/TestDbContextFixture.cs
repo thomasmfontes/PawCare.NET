@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using PawCareApi.Data;
-using PawCareApi.Models;
+using PawCareApi.Domain.Entities;
+using PawCareApi.Infrastructure.Data;
 
 namespace PawCareApi.Tests.Unit.Fixtures;
 
@@ -19,7 +19,6 @@ public class TestDbContextFixture : IDisposable
 
     public void Dispose()
     {
-        // Limpeza de recursos compartilhados, se necessário
         GC.SuppressFinalize(this);
     }
 }

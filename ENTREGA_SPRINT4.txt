@@ -1,0 +1,17 @@
+================================================================================
+FIAP - ADVANCED BUSINESS DEVELOPMENT WITH .NET
+ENTREGA - 4ª SPRINT (CONSOLIDAÇÃO FINAL)
+================================================================================
+
+PROJETO: PawCare API
+LINK DO REPOSITÓRIO NO GITHUB:
+https://github.com/thomasmfontes/PawCare.NET
+
+--------------------------------------------------------------------------------
+INTEGRANTES DO GRUPO:
+--------------------------------------------------------------------------------
+- Thomas Fontes     - RM: 562254
+- Matheus Molina    - RM: 563399
+- Gabriel Maciel    - RM: 562795
+- Vitória Rodrigues - RM: 565160
+- Augusto Bonomo    - RM: 565155

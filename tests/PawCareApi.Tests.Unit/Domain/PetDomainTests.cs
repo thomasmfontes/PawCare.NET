@@ -1,57 +1,56 @@
 using FluentAssertions;
-using PawCareApi.Models;
+using PawCareApi.Domain.Entities;
+using PawCareApi.Domain.Exceptions;
 
-namespace PawCareApi.Tests.Unit.Domain;
-
-public class PetDomainTests
+namespace PawCareApi.Tests.Unit.Domain
 {
-    [Fact]
-    public void InstanciarPet_ComDadosValidos_DeveAtribuirPropriedadesCorretamente()
+    public class PetDomainTests
     {
-        // Arrange
-        var nome = "Thor";
-        var nascimento = new DateTime(2022, 5, 10);
-        var peso = 12.5;
-        var status = "Adulto";
-        var tutorCpf = "12345678901";
-        var racaId = 1L;
-
-        // Act
-        var pet = new Pet
+        [Fact]
+        public void InstanciarPet_ComDadosValidos_DeveAtribuirPropriedadesCorretamente()
         {
-            Nome = nome,
-            DataNascimento = nascimento,
-            Peso = peso,
-            StatusLongevidade = status,
-            TutorCpf = tutorCpf,
-            RacaId = racaId
-        };
+            // Arrange & Act
+            var pet = new Pet("Thor", new DateTime(2022, 5, 10), 12.5, "Adulto", 1, "12345678901");
 
-        // Assert
-        pet.Nome.Should().Be(nome);
-        pet.DataNascimento.Should().Be(nascimento);
-        pet.Peso.Should().Be(peso);
-        pet.StatusLongevidade.Should().Be(status);
-        pet.TutorCpf.Should().Be(tutorCpf);
-        pet.RacaId.Should().Be(racaId);
-    }
+            // Assert
+            pet.Nome.Should().Be("Thor");
+            pet.DataNascimento.Should().Be(new DateTime(2022, 5, 10));
+            pet.Peso.Should().Be(12.5);
+            pet.StatusLongevidade.Should().Be("Adulto");
+            pet.RacaId.Should().Be(1);
+            pet.TutorCpf.Should().Be("12345678901");
+        }
 
-    [Fact]
-    public void AssociarRelacionamentos_ComTutorERacaValidos_DeveVincularObjetos()
-    {
-        // Arrange
-        var tutor = new Tutor { Cpf = "12345678901", Nome = "Carlos Silva" };
-        var raca = new Raca { Id = 1, Nome = "Golden Retriever", Especie = "Canina" };
-        var pet = new Pet { Nome = "Rex" };
+        [Fact]
+        public void Validar_ComNomeVazio_DeveLancarDomainValidationException()
+        {
+            // Act
+            Action act = () => new Pet("", DateTime.UtcNow.AddYears(-1), 10.0, "Adulto", 1, "12345678901");
 
-        // Act
-        pet.Tutor = tutor;
-        pet.Raca = raca;
+            // Assert
+            act.Should().Throw<DomainValidationException>()
+                .WithMessage("*nome do pet é obrigatório*");
+        }
 
-        // Assert
-        pet.Tutor.Should().NotBeNull();
-        pet.Tutor.Nome.Should().Be("Carlos Silva");
-        pet.Raca.Should().NotBeNull();
-        pet.Raca.Nome.Should().Be("Golden Retriever");
+        [Fact]
+        public void Validar_ComPesoInvalido_DeveLancarDomainValidationException()
+        {
+            // Act
+            Action act = () => new Pet("Rex", DateTime.UtcNow.AddYears(-1), -5.0, "Adulto", 1, "12345678901");
+
+            // Assert
+            act.Should().Throw<DomainValidationException>()
+                .WithMessage("*peso do pet deve ser maior que zero*");
+        }
+
+        [Fact]
+        public void CalcularStatusLongevidade_ComNascimentoRecente_DeveRetornarFilhote()
+        {
+            // Act
+            var status = Pet.CalcularStatusLongevidade(DateTime.UtcNow.AddMonths(-4));
+
+            // Assert
+            status.Should().Be("Filhote");
+        }
     }
 }

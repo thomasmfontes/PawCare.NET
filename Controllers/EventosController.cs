@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using PawCareApi.Data;
-using PawCareApi.Models;
+using PawCareApi.Infrastructure.Data;
+using PawCareApi.Domain.Entities;
 
 namespace PawCareApi.Controllers;
 

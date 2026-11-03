@@ -1,53 +1,45 @@
 using FluentAssertions;
-using PawCareApi.Models;
+using PawCareApi.Domain.Entities;
+using PawCareApi.Domain.Exceptions;
 
-namespace PawCareApi.Tests.Unit.Domain;
-
-public class TutorDomainTests
+namespace PawCareApi.Tests.Unit.Domain
 {
-    [Fact]
-    public void InstanciarTutor_ComDadosValidos_DeveInicializarPropriedadesCorretamente()
+    public class TutorDomainTests
     {
-        // Arrange
-        var cpf = "98765432100";
-        var nome = "Mariana Costa";
-        var email = "mariana@email.com";
-        var telefone = "11999998888";
-        var qtdPets = 2;
-
-        // Act
-        var tutor = new Tutor
+        [Fact]
+        public void InstanciarTutor_ComDadosValidos_DeveAtribuirPropriedadesECpfLimpo()
         {
-            Cpf = cpf,
-            Nome = nome,
-            Email = email,
-            Telefone = telefone,
-            QtdPets = qtdPets
-        };
+            // Act
+            var tutor = new Tutor("123.456.789-01", "Thomas Fontes", "11987654321", "thomas@fiap.com.br", 2);
 
-        // Assert
-        tutor.Cpf.Should().Be(cpf);
-        tutor.Nome.Should().Be(nome);
-        tutor.Email.Should().Be(email);
-        tutor.Telefone.Should().Be(telefone);
-        tutor.QtdPets.Should().Be(qtdPets);
-    }
+            // Assert
+            tutor.Cpf.Should().Be("12345678901");
+            tutor.Nome.Should().Be("Thomas Fontes");
+            tutor.Telefone.Should().Be("11987654321");
+            tutor.Email.Should().Be("thomas@fiap.com.br");
+            tutor.QtdPets.Should().Be(2);
+        }
 
-    [Fact]
-    public void AdicionarPets_NaColecaoDePets_DeveAumentarTamanhoDaLista()
-    {
-        // Arrange
-        var tutor = new Tutor { Cpf = "98765432100", Nome = "Mariana Costa" };
-        var pet1 = new Pet { Id = 1, Nome = "Mel", TutorCpf = tutor.Cpf };
-        var pet2 = new Pet { Id = 2, Nome = "Luna", TutorCpf = tutor.Cpf };
+        [Fact]
+        public void Validar_ComEmailInvalido_DeveLancarDomainValidationException()
+        {
+            // Act
+            Action act = () => new Tutor("12345678901", "Carlos", "1199998888", "emailinvalido");
 
-        // Act
-        tutor.Pets.Add(pet1);
-        tutor.Pets.Add(pet2);
+            // Assert
+            act.Should().Throw<DomainValidationException>()
+                .WithMessage("*e-mail válido*");
+        }
 
-        // Assert
-        tutor.Pets.Should().HaveCount(2);
-        tutor.Pets.Should().Contain(p => p.Nome == "Mel");
-        tutor.Pets.Should().Contain(p => p.Nome == "Luna");
+        [Fact]
+        public void Validar_ComCpfVazio_DeveLancarDomainValidationException()
+        {
+            // Act
+            Action act = () => new Tutor("", "Carlos", "1199998888", "carlos@gmail.com");
+
+            // Assert
+            act.Should().Throw<DomainValidationException>()
+                .WithMessage("*CPF do tutor é obrigatório*");
+        }
     }
 }

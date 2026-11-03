@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
@@ -25,6 +26,7 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.11.1" />
     <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.11.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="10.3.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -32,5 +34,24 @@
     <Content Remove="tests\**" />
     <EmbeddedResource Remove="tests\**" />
     <None Remove="tests\**" />
+    <Compile Remove="PawCareApi.Domain\**" />
+    <Content Remove="PawCareApi.Domain\**" />
+    <EmbeddedResource Remove="PawCareApi.Domain\**" />
+    <None Remove="PawCareApi.Domain\**" />
+    <Compile Remove="PawCareApi.Application\**" />
+    <Content Remove="PawCareApi.Application\**" />
+    <EmbeddedResource Remove="PawCareApi.Application\**" />
+    <None Remove="PawCareApi.Application\**" />
+    <Compile Remove="PawCareApi.Infrastructure\**" />
+    <Content Remove="PawCareApi.Infrastructure\**" />
+    <EmbeddedResource Remove="PawCareApi.Infrastructure\**" />
+    <None Remove="PawCareApi.Infrastructure\**" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="PawCareApi.Domain\PawCareApi.Domain.csproj" />
+    <ProjectReference Include="PawCareApi.Application\PawCareApi.Application.csproj" />
+    <ProjectReference Include="PawCareApi.Infrastructure\PawCareApi.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>

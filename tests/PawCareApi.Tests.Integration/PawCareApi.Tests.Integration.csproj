@@ -23,6 +23,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\PawCareApi.csproj" />
+    <ProjectReference Include="..\..\PawCareApi.Domain\PawCareApi.Domain.csproj" />
+    <ProjectReference Include="..\..\PawCareApi.Application\PawCareApi.Application.csproj" />
+    <ProjectReference Include="..\..\PawCareApi.Infrastructure\PawCareApi.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

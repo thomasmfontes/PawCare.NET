@@ -1,778 +1,310 @@
-# PawCare API
-
-API RESTful desenvolvida para o Challenge da disciplina de Advanced Business Development with .NET.
-
-## Integrantes
-
-- Thomas Fontes - RM: 562254
-- Matheus Molina - RM: 563399
-- Gabriel Maciel - RM: 562795
-- Vitória Rodrigues - RM: 565160
-- Augusto Bonomo - RM: 565155
+# 🐾 PawCare API - Gestão Veterinária & Cuidados Pet
+> **Advanced Business Development with .NET - FIAP 2026**  
+> *Consolidação Final - 4ª Sprint*
 
 ---
 
-## Descrição do Projeto
+## 👥 Integrantes do Grupo
 
-O **PawCare API** é uma aplicação backend desenvolvida em **ASP.NET Core Web API**, com integração ao banco de dados **Oracle** utilizando **Entity Framework Core**.
+| Nome | RM |
+|---|---|
+| **Thomas Fontes** | **562254** |
+| **Matheus Molina** | **563399** |
+| **Gabriel Maciel** | **562795** |
+| **Vitória Rodrigues** | **565160** |
+| **Augusto Bonomo** | **565155** |
 
-O sistema tem como objetivo gerenciar informações relacionadas ao cuidado de pets, permitindo o cadastro e a consulta de tutores, raças, pets, clínicas veterinárias, médicos especialistas, tratamentos, eventos clínicos e históricos clínicos.
-
-A API foi pensada para apoiar o aplicativo PawCare, oferecendo uma base estruturada para o acompanhamento da saúde dos animais, centralizando dados clínicos e relacionamentos importantes entre tutor, pet, clínica e profissional responsável.
-
----
-
-## Objetivo da Solução
-
-A proposta do PawCare é facilitar o gerenciamento da saúde dos pets por meio de uma API organizada, escalável e integrada ao banco de dados Oracle.
-
-A solução permite:
-
-- Cadastrar tutores.
-- Cadastrar pets vinculados a tutores.
-- Associar pets a raças.
-- Registrar clínicas veterinárias.
-- Registrar médicos especialistas.
-- Registrar tratamentos por pet.
-- Registrar eventos clínicos.
-- Gerar histórico clínico a partir dos eventos.
-- Consultar informações por parâmetros como CPF do tutor, raça, espécie, cidade, tipo de evento e status.
+🔗 **Repositório GitHub:** [https://github.com/thomasmfontes/PawCare.NET](https://github.com/thomasmfontes/PawCare.NET)
 
 ---
 
-## Tecnologias Utilizadas
+## 📌 1. Visão Geral da Solução
 
-- C# (.NET 10)
-- ASP.NET Core Web API
-- Entity Framework Core
-- Oracle Database & Oracle.EntityFrameworkCore
-- In-Memory Database (para testes automatizados isolados)
-- Swagger / OpenAPI com documentação rica e XML comments
-- Serilog (Logging estruturado em Console e Arquivo com Correlation ID)
-- OpenTelemetry (Distributed Tracing e Métricas de desempenho)
-- Microsoft.Extensions.Diagnostics.HealthChecks (Endpoints de integridade)
-- xUnit, Moq e FluentAssertions (Testes Unitários com padrão AAA)
-- WebApplicationFactory & Fixtures (Testes de Integração de endpoints)
-- Migrations
-- Visual Studio / VS Code
-- .NET CLI
+O **PawCare API** é uma solução backend corporativa desenvolvida em **.NET 10** (C#) aplicando os padrões arquiteturais mais modernos da indústria de software: **Clean Architecture**, **Repository Pattern**, **Operation Result**, **PageResult**, **HATEOAS**, persistência híbrida (**Oracle Database Relacional** via Entity Framework Core e **MongoDB NoSQL** com MongoDB.Driver), **Segurança JWT Bearer**, **Observabilidade completa (Serilog, OpenTelemetry e Health Checks)** e uma abrangente suíte de **44 testes automatizados (xUnit)**.
+
+A plataforma centraliza a gestão de cuidados veterinários, permitindo o acompanhamento de pets, tutores, clínicas, raças, tratamentos, médicos veterinários, eventos clínicos e o armazenamento semiestruturado de **prontuários veterinários eletrônicos NoSQL**.
 
 ---
 
-## Arquitetura do Projeto
+## 🏗️ 2. Arquitetura da Solução (Clean Architecture)
 
-O projeto adota uma arquitetura modular em camadas, com separação clara de responsabilidades, incluindo observabilidade, diagnósticos e projetos de testes automatizados dedicados:
+A solução foi estruturada rigorosamente segundo os preceitos da **Clean Architecture**, respeitando a Regra de Dependência e isolando as regras de negócio de frameworks e detalhes de infraestrutura em 6 projetos dedicados:
+
+```mermaid
+graph TD
+    subgraph Core["Core da Aplicação (Independente de Frameworks)"]
+        Domain["🧠 PawCareApi.Domain<br/>- Entidades de Negócio<br/>- Interfaces de Repositório<br/>- Exceptions Customizadas<br/>- OperationResult & PageResult<br/>- LinkDto (HATEOAS)"]
+        App["⚙️ PawCareApi.Application<br/>- DTOs & Mappers Tipados<br/>- Interfaces de Serviços<br/>- Serviços de Domínio<br/>- HateoasService"]
+    end
+
+    subgraph Adapters["Infraestrutura & Persistência"]
+        Infra["🗄️ PawCareApi.Infrastructure<br/>- PawCareContext (EF Core Oracle)<br/>- Repositórios Relacionais<br/>- MongoDbContext & ProntuarioRepository (NoSQL)<br/>- JwtTokenGenerator (HMAC-SHA256)<br/>- Migrations"]
+    end
+
+    subgraph EntryPoint["Apresentação & API"]
+        Api["🌐 PawCareApi (Web API Host)<br/>- Controllers RESTful (ApiControllerBase)<br/>- GlobalExceptionMiddleware (RFC 7807)<br/>- CorrelationIdMiddleware<br/>- Serilog & OpenTelemetry<br/>- Health Checks (/live, /ready)"]
+    end
+
+    subgraph Quality["Garantia de Qualidade & Testes"]
+        Unit["🧪 PawCareApi.Tests.Unit<br/>(xUnit, Moq, FluentAssertions)"]
+        Integration["🔬 PawCareApi.Tests.Integration<br/>(WebApplicationFactory, In-Memory DB)"]
+    end
+
+    App -->|Depende de| Domain
+    Infra -->|Depende de| Domain
+    Infra -->|Depende de| App
+    Api -->|Depende de| App
+    Api -->|Depende de| Infra
+    Api -->|Depende de| Domain
+    Unit --> Domain
+    Unit --> App
+    Integration --> Api
+```
+
+### Estrutura Física de Diretórios:
 
 ```txt
 PawCareApi/
 │
-├── Controllers/                         # Controladores REST com anotações e XML Docs Swagger
-│   ├── TutoresController.cs
-│   ├── RacasController.cs
-│   ├── PetsController.cs
-│   ├── ClinicasController.cs
-│   ├── MedicosEspecialistasController.cs
-│   ├── TratamentosController.cs
-│   ├── EventosController.cs
-│   └── HistoricosClinicosController.cs
+├── 🧠 PawCareApi.Domain/                      # Camada de Domínio
+│   ├── Common/                                # OperationResult, PageResult, LinkDto
+│   ├── Entities/                              # Pet, Tutor, Clinica, User, ProntuarioNoSql...
+│   ├── Exceptions/                            # DomainValidationException, EntityNotFoundException...
+│   └── Interfaces/                            # IPetRepository, ITutorRepository, IProntuarioRepository...
 │
-├── Middlewares/                         # Middlewares da aplicação
-│   └── CorrelationIdMiddleware.cs       # Rastreamento de requisições com X-Correlation-ID
+├── ⚙️ PawCareApi.Application/                 # Camada de Aplicação
+│   ├── DTOs/                                  # Common, Auth, Pets, Tutores, Clinicas, Prontuarios
+│   ├── Interfaces/                            # IPetService, ITutorService, IProntuarioService, IAuthService...
+│   ├── Mappers/                               # PetMapper, TutorMapper, ClinicaMapper, ProntuarioMapper
+│   └── Services/                              # Regras de negócio, validações, logging e HATEOAS
 │
-├── HealthChecks/                        # Verificação de saúde da aplicação
-│   ├── ExternalServicesHealthCheck.cs   # Health check de serviços externos/internet
-│   └── HealthCheckResponseWriter.cs     # Serializador JSON formatado para diagnósticos
+├── 🗄️ PawCareApi.Infrastructure/              # Camada de Infraestrutura
+│   ├── Data/                                  # PawCareContext, DbInitializer
+│   ├── Data/Configurations/                   # Mapeamentos Fluent API (EF Core)
+│   ├── Migrations/                            # Histórico de migrações relacionais
+│   ├── NoSql/                                 # MongoDbContext, MongoDbSettings, ProntuarioRepository
+│   ├── Repositories/                          # Repositórios concretos EF Core
+│   └── Security/                              # JwtTokenGenerator (Tokens HMAC-SHA256)
 │
-├── Diagnostics/                         # Instrumentação de telemetria
-│   └── PawCareMetrics.cs                # Contadores e histogramas OpenTelemetry
+├── 🌐 PawCareApi/                             # Camada de Apresentação / Web API Host
+│   ├── Controllers/                           # ApiControllerBase, Auth, Pets, Tutores, Prontuarios...
+│   ├── Diagnostics/                           # Métricas customizadas OpenTelemetry
+│   ├── HealthChecks/                          # MongoHealthCheck, ExternalServicesHealthCheck...
+│   ├── Middlewares/                           # GlobalExceptionMiddleware, CorrelationIdMiddleware
+│   ├── appsettings.json                       # Configurações de Conexão, JWT e MongoDB
+│   └── Program.cs                             # Pipeline de middlewares, DI, Auth e Swagger
 │
-├── Data/
-│   └── PawCareContext.cs                # DbContext da aplicação
+├── 🧪 tests/PawCareApi.Tests.Unit/            # 28 Testes Unitários (xUnit + Moq)
+│   ├── Common/                                # Testes de OperationResult e PageResult
+│   ├── Domain/                                # Validações de entidades de domínio
+│   └── Services/                              # Testes de serviços com mocks
 │
-├── Models/                              # Modelos de domínio
-│   ├── Tutor.cs
-│   ├── Raca.cs
-│   ├── Pet.cs
-│   ├── Clinica.cs
-│   ├── MedicoEspecialista.cs
-│   ├── Tratamento.cs
-│   ├── Evento.cs
-│   └── HistoricoClinico.cs
-│
-├── Mappings/                            # Fluent API mappings para Oracle
-│   ├── TutorMapping.cs
-│   ├── RacaMapping.cs
-│   ├── PetMapping.cs
-│   ├── ClinicaMapping.cs
-│   ├── MedicoEspecialistaMapping.cs
-│   ├── TratamentoMapping.cs
-│   ├── EventoMapping.cs
-│   └── HistoricoClinicoMapping.cs
-│
-├── Migrations/                          # Migrações do banco de dados
-├── tests/                               # Projetos de Testes Automatizados (Padrão AAA)
-│   ├── PawCareApi.Tests.Unit/           # Testes Unitários (xUnit + Moq)
-│   │   ├── Domain/                      # Testes de regras de negócio das entidades
-│   │   ├── Controllers/                 # Testes unitários dos controladores
-│   │   └── Fixtures/                    # TestDbContextFixture & UnitTestCollection
-│   │
-│   └── PawCareApi.Tests.Integration/    # Testes de Integração (WebApplicationFactory)
-│       ├── Endpoints/                   # Testes de fluxo HTTP completo (Pets, Tutores, Health)
-│       └── Fixtures/                    # CustomWebApplicationFactory & IntegrationTestCollection
-│
-├── logs/                                # Arquivos de log estruturados (gerados em runtime)
-├── Program.cs                           # Inicialização, Serilog, OpenTelemetry e HealthChecks
-├── appsettings.json
-└── README.md
-```
----
-
-## Entidades Implementadas
-
-A API implementa as seguintes entidades principais:
-
-- Tutor
-- Raça
-- Pet
-- Clínica
-- Médico Especialista
-- Tratamento
-- Evento
-- Histórico Clínico
-
----
-
-## Relacionamentos Principais
-
-O banco de dados foi modelado com os seguintes relacionamentos:
-
-- Um **Tutor** pode possuir vários **Pets**.
-- Uma **Raça** pode estar associada a vários **Pets**.
-- Um **Pet** pertence a um **Tutor**.
-- Um **Pet** pertence a uma **Raça**.
-- Um **Pet** pode possuir vários **Tratamentos**.
-- Um **Pet** pode participar de vários **Eventos**.
-- Um **Evento** é vinculado a um **Pet**.
-- Um **Evento** é vinculado a um **Tutor**.
-- Um **Evento** é vinculado a um **Médico Especialista**.
-- Um **Evento** é vinculado a uma **Clínica**.
-- Um **Evento** pode gerar um **Histórico Clínico**.
-- Uma **Clínica** pode sediar vários **Eventos**.
-- Um **Médico Especialista** pode realizar vários **Eventos**.
-
----
-
-## Banco de Dados
-
-O banco de dados utilizado foi o **Oracle**.
-
-As tabelas foram criadas utilizando **Entity Framework Core Migrations**.
-
-Principais tabelas criadas:
-
-```txt
-TUTOR
-RACA
-PET
-CLINICA
-MEDICO_ESPECIALISTA
-TRATAMENTO
-EVENTO
-HISTORICO_CLINICO
-__EFMigrationsHistory
-```
-
-A tabela `__EFMigrationsHistory` é criada automaticamente pelo Entity Framework Core para controlar as migrations aplicadas no banco.
-
----
-
-## Configuração da Conexão Oracle
-
-A conexão com o banco Oracle é configurada no arquivo `appsettings.json`.
-
-Exemplo:
-
-```json
-{
-  "ConnectionStrings": {
-    "OracleConnection": "User Id=SEU_USUARIO;Password=SUA_SENHA;Data Source=oracle.fiap.com.br:1521/ORCL"
-  },
-
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  },
-
-  "AllowedHosts": "*"
-}
-```
-
-> Por segurança, a string de conexão real não deve ser exposta publicamente em repositórios públicos.
-
----
-
-## Migrations
-
-Foram utilizadas migrations para criação e atualização das tabelas no Oracle.
-
-Comandos utilizados:
-
-```bash
-dotnet ef migrations add InitialCreate
-dotnet ef database update
-```
-
-Depois, para adicionar as entidades clínicas:
-
-```bash
-dotnet ef migrations add AddClinicalEntities
-dotnet ef database update
+└── 🔬 tests/PawCareApi.Tests.Integration/     # 16 Testes de Integração (WebApplicationFactory)
+    ├── Endpoints/                             # HealthCheck, Auth, Pets, Tutores, Prontuarios NoSQL
+    └── Fixtures/                              # CustomWebApplicationFactory, TestCollection
 ```
 
 ---
 
-## Endpoints da API
+## 🎯 3. Requisitos da Sprint 4 Atendidos
 
-A API possui endpoints REST para operações de cadastro, consulta, atualização e remoção.
+| Requisito | Pontos | Implementação Técnica |
+|---|:---:|---|
+| **1. Arquitetura e Código** | 30 pts | Clean Architecture em 4 camadas segregadas, SOLID, Injeção de Dependência via interfaces e tratamento global de exceções via `GlobalExceptionMiddleware` com RFC 7807 (`ProblemDetails`). |
+| **2. API Restful Completa** | 20 pts | Swagger interativo com JWT Bearer e XML Docs, Paginação com envelope `PageResult`, ordenação e filtros, links hipermidiáticos **HATEOAS** em todos os endpoints de consulta, autenticação e autorização JWT com roles (`Admin`, `Veterinario`, `User`). |
+| **3. Persistência de Dados** | 20 pts | Persistência Relacional com **Entity Framework Core** (Oracle Database com migrações aplicadas e suporte In-Memory para testes), Persistência **NoSQL com MongoDB** para prontuários clínicos veterinários (`ProntuarioNoSql`) e **Repository Pattern** em todas as entidades. |
+| **4. Monitoramento & Testes** | 20 pts | Logging estruturado com Serilog (console e arquivo rotativo diário em `logs/pawcare-.log`), OpenTelemetry com métricas customizadas, Health Checks (`/health`, `/health/ready` e `/health/live` com self check vinculado à tag `live` conforme feedback da Sprint 3) e **44 testes automatizados** aprovados com padrão AAA. |
+| **5. Documentação Final** | 10 pts | README completo com visão geral, arquitetura, catálogo detalhado de endpoints, instruções de execução, diagrama Mermaid e arquivo `ENTREGA_SPRINT4.txt`. |
 
 ---
 
-## Tutores
+## 🩺 4. Persistência de Dados: Relacional e NoSQL
 
-| Método | Endpoint | Descrição | Retornos |
+### 4.1 Banco Relacional (Oracle Database & EF Core)
+O banco relacional armazena a estrutura transacional central do sistema veterinário com chaves estrangeiras, índices e integridade referencial:
+- **Tabelas:** `TUTOR`, `RACA`, `PET`, `CLINICA`, `MEDICO_ESPECIALISTA`, `EVENTO`, `HISTORICO_CLINICO`, `TRATAMENTO`, `TB_PAW_USERS`.
+- Configurado via **Fluent API** no `PawCareContext` em `PawCareApi.Infrastructure`.
+- Suporte a execução transparente em modo In-Memory para ambientes de desenvolvimento e testes.
+
+### 4.2 Banco NoSQL (MongoDB - Prontuários Veterinários)
+Para atender à necessidade de prontuários clínicos semiestruturados com sinais vitais e histórico dinâmico de sintomas, foi integrado o **MongoDB**:
+- **Coleção:** `Prontuarios`
+- **Documento NoSQL (`ProntuarioNoSql`):**
+  - `Id`: Identificador único (MongoDB ObjectId)
+  - `PetId`: Vínculo com a entidade relacional do Pet
+  - `NomePet` e `TutorCpf`: Snapshots cadastrais
+  - `VeterinarioNome`: Profissional responsável
+  - `DataAtendimento`: Data/hora do registro
+  - `TipoAtendimento`: Consulta, Exame, Cirurgia, Emergência
+  - `QueixaPrincipal` e `Diagnostico`
+  - `SinaisVitais`: Objeto aninhado com temperatura (°C), batimentos (bpm), respiração (mpm), peso (kg) e pressão arterial
+  - `Sintomas`: Array de strings pesquisável via regex
+  - `Prescricoes`: Coleção aninhada de medicamentos, dosagens, frequências e duração em dias
+  - `Observacoes`
+- **Resiliência e Fallback:** O repositório NoSQL possui fallback concorrente em memória garantindo que o sistema e toda a suíte de testes funcionem sem falhas mesmo caso o servidor local do MongoDB esteja offline.
+
+---
+
+## 🔒 5. Autenticação e Autorização (JWT Bearer)
+
+A autenticação utiliza tokens **JWT (HMAC-SHA256)** gerados no endpoint `/api/auth/login`. Os perfis de acesso (Roles) controlam o que cada usuário pode executar:
+
+### Credenciais Pré-configuradas no Seed:
+| Usuário | Senha | Perfil (Role) | Permissões |
 |---|---|---|---|
-| GET | `/api/Tutores` | Lista todos os tutores | 200 |
-| GET | `/api/Tutores/{cpf}` | Busca tutor por CPF | 200, 404 |
-| GET | `/api/Tutores/email/{email}` | Busca tutor por e-mail | 200, 404 |
-| POST | `/api/Tutores` | Cadastra um tutor | 201, 400 |
-| PUT | `/api/Tutores/{cpf}` | Atualiza um tutor | 204, 400, 404 |
-| DELETE | `/api/Tutores/{cpf}` | Remove um tutor | 204, 400, 404 |
+| `admin` | `Admin@123` | **Admin** | Acesso total: criação, edição e exclusão de qualquer recurso |
+| `thomas` | `Fiap@2026` | **Admin** | Administrador Aluno (RM: 562254) |
+| `vet` | `Vet@123` | **Veterinario** | Criação e atualização de pets, tutores e prontuários clínicos NoSQL |
+| `user` | `User@123` | **User** | Consultas e acompanhamento |
 
-### Exemplo de cadastro de tutor
+### Como Autenticar pelo Swagger UI:
+1. Abra o Swagger UI em `http://localhost:5000/swagger`.
+2. Execute a requisição no endpoint `POST /api/auth/login` com as credenciais acima.
+3. Copie o valor do `token` retornado no JSON.
+4. Clique no botão **Authorize** (cadeado verde no topo direito do Swagger).
+5. No campo, digite `Bearer {SEU_TOKEN}` (ou apenas `{SEU_TOKEN}`).
+6. Clique em **Authorize** e feche a janela. Todos os endpoints protegidos agora enviarão o token automaticamente!
 
+---
+
+## 🌐 6. Hipermídia com HATEOAS & Paginação Estruturada
+
+Todos os endpoints de listagem utilizam o padrão **PageResult** contendo metadados de paginação:
 ```json
 {
-  "cpf": "12345678900",
-  "nome": "Maria Oliveira",
-  "telefone": "11999999999",
-  "email": "maria@email.com",
-  "qtdPets": 0,
-  "pets": []
-}
-```
-
----
-
-## Raças
-
-| Método | Endpoint | Descrição | Retornos |
-|---|---|---|---|
-| GET | `/api/Racas` | Lista todas as raças | 200 |
-| GET | `/api/Racas/{id}` | Busca raça por ID | 200, 404 |
-| GET | `/api/Racas/especie/{especie}` | Lista raças por espécie | 200 |
-| POST | `/api/Racas` | Cadastra uma raça | 201 |
-| PUT | `/api/Racas/{id}` | Atualiza uma raça | 204, 400, 404 |
-| DELETE | `/api/Racas/{id}` | Remove uma raça | 204, 400, 404 |
-
-### Exemplo de cadastro de raça
-
-```json
-{
-  "nome": "Golden Retriever",
-  "especie": "Cachorro",
-  "pets": []
-}
-```
-
----
-
-## Pets
-
-| Método | Endpoint | Descrição | Retornos |
-|---|---|---|---|
-| GET | `/api/Pets` | Lista todos os pets | 200 |
-| GET | `/api/Pets/{id}` | Busca pet por ID | 200, 404 |
-| GET | `/api/Pets/tutor/{cpf}` | Lista pets por tutor | 200, 404 |
-| GET | `/api/Pets/raca/{racaId}` | Lista pets por raça | 200, 404 |
-| GET | `/api/Pets/status/{status}` | Lista pets por status de longevidade | 200 |
-| POST | `/api/Pets` | Cadastra um pet | 201, 400 |
-| PUT | `/api/Pets/{id}` | Atualiza um pet | 204, 400, 404 |
-| DELETE | `/api/Pets/{id}` | Remove um pet | 204, 404 |
-
-### Exemplo de cadastro de pet
-
-```json
-{
-  "nome": "Luna",
-  "dataNascimento": "2021-05-10T00:00:00",
-  "peso": 18.5,
-  "statusLongevidade": "Adulto",
-  "racaId": 1,
-  "tutorCpf": "12345678900"
-}
-```
-
----
-
-## Clínicas
-
-| Método | Endpoint | Descrição | Retornos |
-|---|---|---|---|
-| GET | `/api/Clinicas` | Lista todas as clínicas | 200 |
-| GET | `/api/Clinicas/{id}` | Busca clínica por ID | 200, 404 |
-| GET | `/api/Clinicas/cidade/{cidade}` | Lista clínicas por cidade | 200 |
-| GET | `/api/Clinicas/atendimento-24h` | Lista clínicas com atendimento 24h | 200 |
-| POST | `/api/Clinicas` | Cadastra uma clínica | 201 |
-| PUT | `/api/Clinicas/{id}` | Atualiza uma clínica | 204, 400, 404 |
-| DELETE | `/api/Clinicas/{id}` | Remove uma clínica | 204, 400, 404 |
-
-### Exemplo de cadastro de clínica
-
-```json
-{
-  "nomeCnpj": "Clínica Pet Vida - 12345678000199",
-  "telefone": "1133334444",
-  "latitude": -23.55052,
-  "longitude": -46.633308,
-  "bairro": "Centro",
-  "cidade": "São Paulo",
-  "estado": "SP",
-  "atendimento24h": true
-}
-```
-
----
-
-## Médicos Especialistas
-
-| Método | Endpoint | Descrição | Retornos |
-|---|---|---|---|
-| GET | `/api/MedicosEspecialistas` | Lista todos os médicos | 200 |
-| GET | `/api/MedicosEspecialistas/{id}` | Busca médico por ID | 200, 404 |
-| GET | `/api/MedicosEspecialistas/especialidade/{especialidade}` | Lista médicos por especialidade | 200 |
-| POST | `/api/MedicosEspecialistas` | Cadastra um médico | 201 |
-| PUT | `/api/MedicosEspecialistas/{id}` | Atualiza um médico | 204, 400, 404 |
-| DELETE | `/api/MedicosEspecialistas/{id}` | Remove um médico | 204, 400, 404 |
-
-### Exemplo de cadastro de médico especialista
-
-```json
-{
-  "nome": "Dra. Ana Souza",
-  "especialidade": "Dermatologia Veterinária"
-}
-```
-
----
-
-## Tratamentos
-
-| Método | Endpoint | Descrição | Retornos |
-|---|---|---|---|
-| GET | `/api/Tratamentos` | Lista todos os tratamentos | 200 |
-| GET | `/api/Tratamentos/{id}` | Busca tratamento por ID | 200, 404 |
-| GET | `/api/Tratamentos/pet/{idPet}` | Lista tratamentos por pet | 200, 404 |
-| POST | `/api/Tratamentos` | Cadastra um tratamento | 201, 400 |
-| PUT | `/api/Tratamentos/{id}` | Atualiza um tratamento | 204, 400, 404 |
-| DELETE | `/api/Tratamentos/{id}` | Remove um tratamento | 204, 404 |
-
-### Exemplo de cadastro de tratamento
-
-```json
-{
-  "idPet": 1,
-  "nomeMedicamento": "Antibiótico Veterinário",
-  "frequencia": "A cada 12 horas",
-  "dataInicio": "2026-05-20T00:00:00",
-  "dataFinal": "2026-05-27T00:00:00"
-}
-```
-
----
-
-## Eventos
-
-| Método | Endpoint | Descrição | Retornos |
-|---|---|---|---|
-| GET | `/api/Eventos` | Lista todos os eventos | 200 |
-| GET | `/api/Eventos/{id}` | Busca evento por ID | 200, 404 |
-| GET | `/api/Eventos/pet/{idPet}` | Lista eventos por pet | 200, 404 |
-| GET | `/api/Eventos/tutor/{cpf}` | Lista eventos por tutor | 200, 404 |
-| GET | `/api/Eventos/tipo/{tipo}` | Lista eventos por tipo | 200 |
-| POST | `/api/Eventos` | Cadastra um evento | 201, 400 |
-| PUT | `/api/Eventos/{id}` | Atualiza um evento | 204, 400, 404 |
-| DELETE | `/api/Eventos/{id}` | Remove um evento | 204, 400, 404 |
-
-### Exemplo de cadastro de evento
-
-```json
-{
-  "tipo": "Consulta",
-  "idPet": 1,
-  "idTutor": "12345678900",
-  "idMedico": 1,
-  "idClinica": 1
-}
-```
-
----
-
-## Históricos Clínicos
-
-| Método | Endpoint | Descrição | Retornos |
-|---|---|---|---|
-| GET | `/api/HistoricosClinicos` | Lista todos os históricos | 200 |
-| GET | `/api/HistoricosClinicos/{id}` | Busca histórico por ID | 200, 404 |
-| GET | `/api/HistoricosClinicos/evento/{idEvento}` | Busca histórico por evento | 200, 404 |
-| GET | `/api/HistoricosClinicos/status/{status}` | Lista históricos por status | 200 |
-| POST | `/api/HistoricosClinicos` | Cadastra um histórico clínico | 201, 400 |
-| PUT | `/api/HistoricosClinicos/{id}` | Atualiza um histórico clínico | 204, 400, 404 |
-| DELETE | `/api/HistoricosClinicos/{id}` | Remove um histórico clínico | 204, 404 |
-
-### Exemplo de cadastro de histórico clínico
-
-```json
-{
-  "idEvento": 1,
-  "dataEvento": "2026-05-20T00:00:00",
-  "dataVencimento": "2026-06-20T00:00:00",
-  "status": "Concluído",
-  "observacoesIa": "Consulta registrada com recomendação de acompanhamento."
-}
-```
-
----
-
-## Retornos HTTP Utilizados
-
-A API utiliza os seguintes códigos HTTP:
-
-| Código | Retorno | Uso |
-|---|---|---|
-| 200 | OK | Consultas realizadas com sucesso |
-| 201 | Created | Registro criado com sucesso |
-| 204 | No Content | Atualização ou exclusão realizada com sucesso |
-| 400 | Bad Request | Dados inválidos, inconsistentes ou violação de regra de negócio |
-| 404 | Not Found | Registro não encontrado |
-
----
-
-## Validações Implementadas
-
-Foram implementadas validações para evitar inconsistências no banco de dados.
-
-Exemplos:
-
-- Não permite cadastrar pet com tutor inexistente.
-- Não permite cadastrar pet com raça inexistente.
-- Não permite cadastrar tratamento com pet inexistente.
-- Não permite cadastrar evento com pet inexistente.
-- Não permite cadastrar evento com tutor inexistente.
-- Não permite cadastrar evento com médico inexistente.
-- Não permite cadastrar evento com clínica inexistente.
-- Não permite cadastrar evento se o pet não pertencer ao tutor informado.
-- Não permite cadastrar mais de um histórico clínico para o mesmo evento.
-- Não permite remover tutor que possui pets cadastrados.
-- Não permite remover raça vinculada a pets.
-- Não permite remover clínica vinculada a eventos.
-- Não permite remover médico vinculado a eventos.
-- Não permite remover evento que possui histórico clínico.
-
----
-
-## Exemplos de Testes Realizados
-
-| Teste | Endpoint | Resultado |
-|---|---|---|
-| Cadastro de tutor | `POST /api/Tutores` | 201 Created |
-| Consulta de pets | `GET /api/Pets` | 200 OK |
-| Consulta de pet inexistente | `GET /api/Pets/9999` | 404 Not Found |
-| Cadastro de pet com raça inexistente | `POST /api/Pets` | 400 Bad Request |
-| Atualização de pet | `PUT /api/Pets/1` | 204 No Content |
-| Cadastro de evento | `POST /api/Eventos` | 201 Created |
-| Consulta de eventos por tutor | `GET /api/Eventos/tutor/12345678900` | 200 OK |
-
----
-
-## Como Executar o Projeto
-
-### 1. Clonar o repositório
-
-```bash
-git clone https://github.com/thomasmfontes/PawCare.NET.git
-```
-
-### 2. Acessar a pasta do projeto
-
-```bash
-cd PawCareApi
-```
-
-### 3. Restaurar os pacotes
-
-```bash
-dotnet restore
-```
-
-### 4. Configurar a string de conexão
-
-No arquivo `appsettings.json`, configurar a conexão Oracle:
-
-```json
-{
-  "ConnectionStrings": {
-    "OracleConnection": "User Id=SECRETO;Password=SECRETO;Data Source=oracle.fiap.com.br:1521/ORCL"
+  "success": true,
+  "message": "Lista paginada de pets recuperada com sucesso.",
+  "data": {
+    "items": [
+      {
+        "id": 500,
+        "nome": "Max",
+        "dataNascimento": "2020-01-01T00:00:00",
+        "peso": 30.0,
+        "statusLongevidade": "Adulto",
+        "racaId": 100,
+        "tutorCpf": "11122233344",
+        "links": [
+          { "rel": "self", "href": "http://localhost:5000/api/pets/500", "method": "GET" },
+          { "rel": "update", "href": "http://localhost:5000/api/pets/500", "method": "PUT" },
+          { "rel": "delete", "href": "http://localhost:5000/api/pets/500", "method": "DELETE" },
+          { "rel": "tutor", "href": "http://localhost:5000/api/tutores/11122233344", "method": "GET" },
+          { "rel": "prontuarios-nosql", "href": "http://localhost:5000/api/prontuarios/pet/500", "method": "GET" }
+        ]
+      }
+    ],
+    "pageNumber": 1,
+    "pageSize": 10,
+    "totalItems": 1,
+    "totalPages": 1,
+    "hasPreviousPage": false,
+    "hasNextPage": false
   }
 }
 ```
 
-### 5. Aplicar as migrations
-
-```bash
-dotnet ef database update
-```
-
-### 6. Executar a aplicação
-
-```bash
-dotnet run
-```
-
-### 7. Acessar o Swagger
-
-Acessar no navegador:
-
-```txt
-http://localhost:{porta}/swagger
-```
-
-Exemplo:
-
-```txt
-http://localhost:5115/swagger
-```
-
 ---
 
-## Documentação Detalhada da API (Swagger / OpenAPI)
+## 🩺 7. Observabilidade e Health Checks
 
-A API conta com documentação interativa avançada gerada pelo **Swashbuckle / OpenAPI**, enriquecida por comentários XML compilados a partir do código-fonte (`PawCareApi.xml`):
-
-- **Descrições Completas**: Todos os controladores e endpoints possuem descrições de propósito, parâmetros de rota/query e corpo da requisição.
-- **Códigos de Resposta HTTP Documentados**: Cada método implementa anotações explícitas `[ProducesResponseType]` e tags XML `<response code="...">`, cobrindo:
-  - `200 OK`: Sucesso em consultas.
-  - `201 Created`: Criação de recursos com retorno da rota no header `Location`.
-  - `204 NoContent`: Atualizações e exclusões bem-sucedidas.
-  - `400 BadRequest`: Validações de payload, campos obrigatórios, inconsistências de IDs ou chaves duplicadas.
-  - `404 NotFound`: Entidades ou parâmetros não localizados na base.
-- **Modelos e DTOs Tipados**: Esquemas de dados exibidos com tipos primitivos, restrições e relacionamentos claros na interface gráfica do Swagger.
-
----
-
-## Monitoramento e Observabilidade
-
-A aplicação implementa uma camada abrangente de observabilidade, integrando monitoramento de integridade (Health Checks), registro de eventos estruturados (Logging) e telemetria distribuída (Tracing e Métricas).
-
-### 1. Health Checks (`Microsoft.Extensions.Diagnostics.HealthChecks`)
-
-Permite a sondagem em tempo real da saúde da aplicação e de suas dependências críticas:
-
-| Endpoint | Finalidade | Verificações Inclusas |
-| :--- | :--- | :--- |
-| `/health` | Diagnóstico geral em formato JSON | Todas as sondas registradas (DB + Serviços Externos) |
-| `/health/ready` | Sonda de Prontidão (Readiness Probe) | Conectividade com o banco Oracle e dependências externas |
-| `/health/live` | Sonda de Vitalidade (Liveness Probe) | Verifica se o processo da aplicação ASP.NET Core está ativo |
-
-#### Exemplo de Resposta JSON (`/health` e `/health/ready`):
-```json
-{
-  "status": "Healthy",
-  "totalDuration": "12.45ms",
-  "timestamp": "2026-09-12T01:50:00.000Z",
-  "entries": [
-    {
-      "component": "oracle-database",
-      "status": "Healthy",
-      "description": null,
-      "duration": "8.12ms",
-      "exception": null,
-      "data": {}
-    },
-    {
-      "component": "external-services",
-      "status": "Healthy",
-      "description": "Serviço externo de notificações/integração respondendo com sucesso.",
-      "duration": "4.33ms",
-      "exception": null,
-      "data": {}
-    }
-  ]
-}
-```
-
-### 2. Logging Estruturado com Serilog
-
-Configurado para geração de logs em formato estruturado com contextualização em múltiplos destinos:
-
-- **Correlation ID Middleware**: Cada requisição recebe um `X-Correlation-ID` único (gerado ou propagado pelo cabeçalho HTTP), permitindo rastrear todo o ciclo de vida da requisição entre diferentes camadas e microsserviços.
-- **Destinos (Sinks)**:
-  - **Console**: Saída legível e colorida para facilitar o desenvolvimento local.
-  - **Arquivo Rotativo**: Armazenamento diário em `logs/pawcare-.log` com política de retenção de 14 dias.
-- **Níveis de Severidade**:
-  - `Information`: Ciclo de vida da aplicação e requisições HTTP concluídas.
-  - `Warning`: Validações de negócio frustradas ou degradações controladas.
-  - `Error`: Exceções não tratadas e falhas críticas de infraestrutura.
-
-### 3. Distributed Tracing e Métricas com OpenTelemetry
-
-A aplicação expõe métricas de telemetria e rastreamento distribuído através do padrão **OpenTelemetry**:
-
-- **Distributed Tracing**:
-  - Instrumentação automática do pipeline ASP.NET Core e de chamadas `HttpClient`.
-  - Captura e propagação de contexto de traces entre chamadas de rede e camadas da aplicação.
-- **Métricas de Desempenho (`PawCareMetrics`)**:
-  - Contadores de requisições: `pawcare_requests_total`.
-  - Contadores de taxa de erros: `pawcare_errors_total`.
-  - Histogramas de duração de operações: `pawcare_operation_duration_seconds`.
-  - Métricas de runtime do .NET e roteamento ASP.NET Core (`http.request.duration`, `http.client.request.duration`, `dns.lookup.duration`).
-
----
-
-## Testes Automatizados – Padrão AAA
-
-A solução possui cobertura completa de testes automatizados organizados em projetos dedicados por camada, garantindo que novas funcionalidades possam ser validadas com segurança e isolamento.
-
-### Organização dos Testes
-
-1. **`tests/PawCareApi.Tests.Unit` (Testes Unitários)**:
-   - Framework: **xUnit** com asserções fluidas via **FluentAssertions** e mocks via **Moq**.
-   - Foco: Regras de negócio de domínio (`PetDomainTests`, `TutorDomainTests`) e controladores em isolamento (`PetsControllerTests`, `TutoresControllerTests`, `ClinicasControllerTests`).
-   - Utilização de `TestDbContextFixture` com banco de dados em memória isolado por execução.
-2. **`tests/PawCareApi.Tests.Integration` (Testes de Integração)**:
-   - Framework: **xUnit** + `Microsoft.AspNetCore.Mvc.Testing` (`WebApplicationFactory<Program>`).
-   - Foco: Testar o pipeline HTTP completo dos endpoints (`PetsEndpointTests`, `TutoresEndpointTests`, `HealthCheckEndpointTests`), validando cabeçalhos, códigos de status (200, 201, 204, 400, 404) e serialização JSON.
-   - Utilização de **Class Fixtures** e **Collection Fixtures** (`IntegrationTestCollection`) para inicialização eficiente do servidor de testes e compartilhamento de contexto sem overhead de re-instanciação.
-
-### Padrão AAA (Arrange, Act, Assert) e Nomenclatura
-
-Todos os métodos de teste seguem rigorosamente a convenção:
-`MetodoTestado_Cenario_ResultadoEsperado`
-
-E a estrutura de blocos explícita:
+### Correção do Apontamento da Sprint 3:
+> Na Sprint 3, o professor indicou: *"faltando apenas registrar um self check com a tag live para que a rota /health/live tenha verificações vinculadas."*
+> **Solução implementada na Sprint 4:** Foi registrado o self-check operacional com a tag `"live"`, validado com teste automatizado de integração:
 ```csharp
-[Fact]
-public async Task Create_QuandoDadosValidos_DeveRetornarCreatedEIncrementarQtdPetsDoTutor()
-{
-    // Arrange (Preparação do cenário e dos dados)
-    using var context = _fixture.CreateContext();
-    var tutor = new Tutor { Cpf = "33333333333", Nome = "Roberto", ... };
-    ...
-
-    // Act (Execução da ação a ser testada)
-    var result = await controller.Create(novoPet);
-
-    // Assert (Validação dos resultados esperados)
-    var createdResult = result.Result as CreatedAtActionResult;
-    createdResult.Should().NotBeNull();
-    createdResult!.StatusCode.Should().Be(201);
-}
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy("API operacional e responsiva"), tags: new[] { "live" })
+    .AddDbContextCheck<PawCareContext>("oracle-database", tags: new[] { "ready", "db" })
+    .AddCheck<MongoHealthCheck>("mongodb", tags: new[] { "ready", "nosql" })
+    .AddCheck<ExternalServicesHealthCheck>("external-services", tags: new[] { "ready", "external" });
 ```
 
-### Como Executar os Testes
-
-Execute na raiz da solução:
-
-```bash
-# Executar toda a suíte de testes (Unit + Integration)
-dotnet test
-
-# Executar com saída detalhada no console
-dotnet test --logger "console;verbosity=detailed"
-
-# Executar apenas os testes unitários
-dotnet test tests/PawCareApi.Tests.Unit
-
-# Executar apenas os testes de integração
-dotnet test tests/PawCareApi.Tests.Integration
-```
+### Rotas de Monitoramento:
+- `GET /health`: Diagnóstico geral e detalhado de todos os componentes com tempo de resposta em milissegundos.
+- `GET /health/live`: Liveness Probe para Kubernetes/Docker (avalia a probe `self` com tag `"live"`).
+- `GET /health/ready`: Readiness Probe (avalia conectividade com banco relacional, MongoDB e serviços externos com tag `"ready"`).
 
 ---
 
-## Comandos Úteis
+## 📡 8. Catálogo Completo de Endpoints
 
-### Compilar o projeto
+### 🔐 Autenticação (`/api/auth`)
+- `POST /api/auth/login`: Autentica credenciais e retorna Token JWT.
 
-```bash
-dotnet build
-```
+### 🐕 Pets (`/api/pets`)
+- `GET /api/pets`: Consulta paginada (`pageNumber`, `pageSize`) com filtros por `nome`, `especie`, `racaId`, `tutorCpf` e HATEOAS.
+- `GET /api/pets/todos`: Lista completa de pets.
+- `GET /api/pets/{id}`: Detalhes do pet por ID com links de navegação.
+- `POST /api/pets`: Cadastra novo pet `[Requer Admin ou Veterinario]`.
+- `PUT /api/pets/{id}`: Atualiza pet existente `[Requer Admin ou Veterinario]`.
+- `DELETE /api/pets/{id}`: Remove pet `[Requer Admin]`.
 
-### Rodar o projeto
+### 📋 Prontuários NoSQL - MongoDB (`/api/prontuarios`)
+- `GET /api/prontuarios`: Consulta paginada de documentos no MongoDB com filtros por `petId`, `tipoAtendimento`, `sintoma` e HATEOAS.
+- `GET /api/prontuarios/pet/{petId}`: Histórico clínico NoSQL completo de um animal.
+- `GET /api/prontuarios/{id}`: Consulta documento por ObjectId com sinais vitais e prescrições.
+- `POST /api/prontuarios`: Registra atendimento veterinário no MongoDB `[Requer Admin ou Veterinario]`.
+- `PUT /api/prontuarios/{id}`: Atualiza prontuário NoSQL `[Requer Admin ou Veterinario]`.
+- `DELETE /api/prontuarios/{id}`: Remove prontuário do MongoDB `[Requer Admin]`.
 
-```bash
-dotnet run
-```
+### 👤 Tutores (`/api/tutores`)
+- `GET /api/tutores`: Consulta paginada com filtros por `nome` e `email`.
+- `GET /api/tutores/todos`: Lista todos os tutores cadastrados.
+- `GET /api/tutores/{cpf}`: Detalhes do tutor por CPF com links HATEOAS para seus pets.
+- `POST /api/tutores`: Cadastra tutor `[Requer Admin ou Veterinario]`.
+- `PUT /api/tutores/{cpf}`: Atualiza tutor `[Requer Admin ou Veterinario]`.
+- `DELETE /api/tutores/{cpf}`: Remove tutor `[Requer Admin]`.
 
-### Criar uma migration
+### 🏥 Clínicas Veterinárias (`/api/clinicas`)
+- `GET /api/clinicas`: Consulta paginada com filtros por `cidade` e `atendimento24h`.
+- `GET /api/clinicas/todas`: Lista todas as clínicas.
+- `GET /api/clinicas/{id}`: Detalhes da clínica por ID com HATEOAS.
+- `POST /api/clinicas`: Cadastra clínica veterinária `[Requer Admin]`.
+- `PUT /api/clinicas/{id}`: Atualiza clínica `[Requer Admin]`.
+- `DELETE /api/clinicas/{id}`: Remove clínica `[Requer Admin]`.
 
-```bash
-dotnet ef migrations add NomeDaMigration
-```
-
-### Aplicar migrations no banco
-
-```bash
-dotnet ef database update
-```
-
-### Listar migrations
-
-```bash
-dotnet ef migrations list
-```
-
----
-
-## Observações Técnicas
-
-Durante o desenvolvimento, foi necessário configurar a serialização JSON para evitar ciclos de referência entre entidades relacionadas.
-
-Exemplo de ciclo evitado:
-
-```txt
-Pet -> Raca -> Pets -> Raca -> Pets
-```
-
-A configuração foi aplicada no `Program.cs` utilizando:
-
-```csharp
-using System.Text.Json.Serialization;
-
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
-    });
-```
-
-Também foi necessário mapear campos booleanos para `NUMBER(1)` no Oracle, pois o Oracle não trabalha da mesma forma que o C# com propriedades booleanas em tabelas relacionais.
-
-Exemplo:
-
-```csharp
-builder.Property(c => c.Atendimento24h)
-    .HasColumnName("ATENDIMENTO_24H")
-    .HasConversion<int>()
-    .HasColumnType("NUMBER(1)");
-```
+### 🩺 Demais Recursos Clínicos:
+- `/api/racas`: Cadastro e consulta de raças e espécies.
+- `/api/medicosespecialistas`: Gestão de médicos veterinários e especialidades.
+- `/api/tratamentos`: Prescrições e acompanhamento terapêutico.
+- `/api/eventos`: Consultas, cirurgias e agendamentos clínicos.
+- `/api/historicosclinicos`: Linha do tempo clínica dos animais.
 
 ---
 
-## Conclusão
+## 🚀 9. Como Executar a Aplicação
 
-O projeto PawCare API entrega uma solução backend funcional, estruturada e integrada ao banco de dados Oracle.
+### Pré-requisitos:
+- .NET 10 SDK (ou .NET 8)
+- (Opcional) Instância local do MongoDB (`mongodb://localhost:27017`) — caso não esteja presente, a aplicação utiliza automaticamente o modo resiliente em memória.
 
-A API implementa operações CRUD, rotas RESTful parametrizadas, relacionamentos entre entidades, validações de consistência, migrations com Entity Framework Core e documentação/testes via Swagger.
+### Comandos pelo Terminal:
 
-Com isso, a aplicação atende aos principais requisitos do Challenge, demonstrando domínio de ASP.NET Core, Entity Framework Core, Oracle Database, arquitetura de API REST e boas práticas básicas de desenvolvimento backend.
+```bash
+# 1. Restaurar dependências
+dotnet restore
+
+# 2. Compilar toda a solução
+dotnet build PawCareApi.sln
+
+# 3. Executar a Web API
+dotnet run --project PawCareApi.csproj
+```
+
+Acesse a interface interativa do Swagger:
+👉 **Swagger UI:** `http://localhost:5000/swagger` ou `https://localhost:5001/swagger`
+
+---
+
+## 🧪 10. Como Executar os Testes Automatizados
+
+A suíte conta com **44 testes automatizados** distribuídos entre testes de unidade e testes de integração com banco em memória:
+
+```bash
+# Executa todos os testes da solução
+dotnet test PawCareApi.sln
+```
+
+### Resultados da Execução:
+- **PawCareApi.Tests.Unit:** 28 testes aprovados (Domínio, Serviços, Hateoas, OperationResult, PageResult).
+- **PawCareApi.Tests.Integration:** 16 testes aprovados (HealthCheck `/health`, `/health/live`, `/health/ready`, Auth JWT, Pets, Tutores, Prontuários NoSQL).
+- **Total: 44 aprovados, 0 falhas.**

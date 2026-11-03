@@ -1,7 +1,9 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using FluentAssertions;
-using PawCareApi.Models;
+using PawCareApi.Application.DTOs.Tutores;
 using PawCareApi.Tests.Integration.Fixtures;
 
 namespace PawCareApi.Tests.Integration.Endpoints;
@@ -16,71 +18,63 @@ public class TutoresEndpointTests
         _client = factory.CreateClient();
     }
 
-    [Fact]
-    public async Task GetAll_QuandoChamado_DeveRetornarStatus200ComListaDeTutores()
+    private async Task<string> ObterTokenJwtAsync()
     {
-        // Arrange
-        var requestUri = "/api/tutores";
+        var response = await _client.PostAsJsonAsync("/api/auth/login", new { username = "admin", password = "Admin@123" });
+        response.EnsureSuccessStatusCode();
 
-        // Act
-        var response = await _client.GetAsync(requestUri);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var tutores = await response.Content.ReadFromJsonAsync<List<Tutor>>();
-        tutores.Should().NotBeNull();
-        tutores!.Should().NotBeEmpty();
+        var content = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(content);
+        return doc.RootElement.GetProperty("data").GetProperty("token").GetString()!;
     }
 
     [Fact]
-    public async Task GetByCpf_QuandoCpfExiste_DeveRetornarStatus200ComTutor()
+    public async Task GetAll_QuandoChamado_DeveRetornarStatus200ComPageResult()
     {
-        // Arrange
-        var requestUri = "/api/tutores/11122233344";
-
         // Act
-        var response = await _client.GetAsync(requestUri);
+        var response = await _client.GetAsync("/api/tutores?pageNumber=1&pageSize=10");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var tutor = await response.Content.ReadFromJsonAsync<Tutor>();
-        tutor.Should().NotBeNull();
-        tutor!.Cpf.Should().Be("11122233344");
+        var content = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(content);
+        var root = doc.RootElement;
+
+        root.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = root.GetProperty("data");
+        data.GetProperty("items").EnumerateArray().Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetByCpf_QuandoCpfExiste_DeveRetornarStatus200ComTutorEHateoas()
+    {
+        // Act
+        var response = await _client.GetAsync("/api/tutores/11122233344");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var content = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(content);
+        var data = doc.RootElement.GetProperty("data");
+
+        data.GetProperty("cpf").GetString().Should().Be("11122233344");
+        data.GetProperty("nome").GetString().Should().Be("Tutor Teste Integracao");
+
+        var links = data.GetProperty("links").EnumerateArray().ToList();
+        links.Should().NotBeEmpty();
+        links.Should().Contain(l => l.GetProperty("rel").GetString() == "self");
+        links.Should().Contain(l => l.GetProperty("rel").GetString() == "pets");
     }
 
     [Fact]
     public async Task GetByCpf_QuandoCpfInexistente_DeveRetornarStatus404NotFound()
     {
-        // Arrange
-        var requestUri = "/api/tutores/99988877766";
-
         // Act
-        var response = await _client.GetAsync(requestUri);
+        var response = await _client.GetAsync("/api/tutores/99988877766");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-    }
-
-    [Fact]
-    public async Task Create_QuandoCpfDuplicado_DeveRetornarStatus400BadRequest()
-    {
-        // Arrange
-        var tutorDuplicado = new Tutor
-        {
-            Cpf = "11122233344", // Já cadastrado pelo seed
-            Nome = "Clone",
-            Email = "clone@email.com",
-            Telefone = "11999990000"
-        };
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/tutores", tutorDuplicado);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var body = await response.Content.ReadAsStringAsync();
-        body.Should().Contain("Já existe um tutor cadastrado com este CPF.");
     }
 }
