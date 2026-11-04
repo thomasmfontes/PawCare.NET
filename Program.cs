@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authorization;
+using Swashbuckle.AspNetCore.SwaggerGen;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
@@ -129,10 +131,33 @@ builder.Services.AddAuthentication(options =>
         OnMessageReceived = context =>
         {
             var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
-            if (!string.IsNullOrEmpty(authHeader) && !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            Log.Information("[JWT] Header recebido: '{AuthHeader}'", authHeader ?? "(null)");
+            if (!string.IsNullOrWhiteSpace(authHeader))
             {
-                context.Token = authHeader.Trim();
+                var cleanToken = authHeader.Trim();
+                while (cleanToken.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    cleanToken = cleanToken.Substring(7).Trim();
+                }
+                context.Token = cleanToken;
+                Log.Information("[JWT] Token extraído: '{Token}'", cleanToken.Length > 20 ? cleanToken.Substring(0, 20) + "..." : cleanToken);
             }
+            return Task.CompletedTask;
+        },
+        OnAuthenticationFailed = context =>
+        {
+            Log.Warning(context.Exception, "[JWT] Falha de autenticação: {Message}", context.Exception.Message);
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            var claims = string.Join(", ", context.Principal?.Claims.Select(c => $"{c.Type}={c.Value}") ?? Array.Empty<string>());
+            Log.Information("[JWT] Token validado com sucesso! Claims: {Claims}", claims);
+            return Task.CompletedTask;
+        },
+        OnChallenge = context =>
+        {
+            Log.Warning("[JWT] Challenge acionado. Error: '{Error}', Description: '{Description}'", context.Error, context.ErrorDescription);
             return Task.CompletedTask;
         }
     };
@@ -214,13 +239,15 @@ builder.Services.AddSwaggerGen(options =>
         BearerFormat = "JWT"
     });
 
-    options.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
+    options.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
     {
         {
-            new OpenApiSecuritySchemeReference("Bearer"),
+            new OpenApiSecuritySchemeReference("Bearer", doc),
             new List<string>()
         }
     });
+
+    options.OperationFilter<AllowAnonymousOperationFilter>();
 
     // Habilita inclusão dos comentários XML gerados no build
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
@@ -290,3 +317,20 @@ app.Run();
 
 // Necessário para testes de integração com WebApplicationFactory<Program>
 public partial class Program { }
+
+public class AllowAnonymousOperationFilter : IOperationFilter
+{
+    public void Apply(OpenApiOperation operation, OperationFilterContext context)
+    {
+        var allowAnonymous = (context.MethodInfo.DeclaringType != null &&
+            context.MethodInfo.DeclaringType.GetCustomAttributes(true).OfType<AllowAnonymousAttribute>().Any())
+            || context.MethodInfo.GetCustomAttributes(true).OfType<AllowAnonymousAttribute>().Any();
+
+        if (allowAnonymous)
+        {
+            operation.Security = new List<OpenApiSecurityRequirement>();
+        }
+    }
+}
+
+
